@@ -1,1 +1,189 @@
 
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raja Sahib Tour & Travel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f4f8;font-family:Arial,sans-serif;color:#182238}
+header{background:#102b50;color:white;text-align:center;padding:25px 12px}
+header h1{margin:0;font-size:25px}
+header p{margin:8px 0 0}
+.container{max-width:520px;margin:20px auto;padding:0 14px}
+.card{background:white;padding:20px;border-radius:15px;margin-bottom:18px;box-shadow:0 3px 15px #0001}
+h2{margin-top:0;color:#102b50}
+label{display:block;margin:13px 0 6px;font-weight:bold}
+input,select{width:100%;padding:13px;border:1px solid #ccd3df;border-radius:8px;font-size:16px}
+button{width:100%;padding:14px;background:#102b50;color:white;border:0;border-radius:9px;font-size:16px;font-weight:bold;margin-top:16px}
+button:disabled{opacity:.6}
+.small{font-size:13px;color:#667085}
+.hidden{display:none}
+.booking{border:1px solid #ddd;padding:12px;border-radius:9px;margin:10px 0}
+</style>
+</head>
+<body>
+<header>
+<h1>♛ RAJA SAHIB ♛</h1>
+<h2 style="color:white;margin:8px">TOUR & TRAVEL</h2>
+<p>Hoshiarpur, Punjab</p>
+<p>Online Car Booking</p>
+</header>
+
+<div class="container">
+<section class="card" id="customer">
+<h2>Book Your Vehicle</h2>
+<form id="bookingForm">
+<label>Customer Name</label>
+<input name="customer_name" required minlength="2" placeholder="अपना नाम लिखें">
+
+<label>Mobile Number</label>
+<input name="phone" required type="tel" minlength="10" maxlength="15" placeholder="मोबाइल नंबर">
+
+<label>Journey Date</label>
+<input name="trip_date" required type="date">
+
+<label>Pickup Location</label>
+<input name="pickup" required placeholder="कहाँ से जाना है?">
+
+<label>Destination</label>
+<input name="destination" required placeholder="कहाँ जाना है?">
+
+<label>Number of Passengers</label>
+<input name="passengers" required type="number" min="1" max="30" placeholder="कितने यात्री?">
+
+<label>Vehicle Required</label>
+<select name="vehicle_type" required>
+<option value="">गाड़ी चुनें</option>
+<option>Sedan</option>
+<option>Swift Dzire</option>
+<option>Ertiga</option>
+<option>Kia Carens</option>
+<option>12 Seater Traveller</option>
+<option>15 Seater Traveller</option>
+<option>17 Seater Traveller</option>
+<option>20 Seater Traveller</option>
+<option>Any Available Vehicle</option>
+</select>
+
+<button id="submitBtn" type="submit">Submit Booking</button>
+<p class="small">आपकी Booking मिलने के बाद हमारी टीम आपसे संपर्क करेगी।</p>
+</form>
+<p id="bookingMessage"></p>
+</section>
+
+<section class="card">
+<h2>Admin Login</h2>
+<div id="loginArea">
+<label>Admin Email</label>
+<input id="adminEmail" type="email" placeholder="Admin Email">
+<label>Password</label>
+<input id="adminPassword" type="password" placeholder="Password">
+<button id="loginBtn">Admin Login</button>
+<p id="loginMessage"></p>
+</div>
+<div id="adminArea" class="hidden">
+<h2>Admin Dashboard</h2>
+<button id="refreshBtn">Refresh Bookings</button>
+<div id="bookingList">Bookings यहाँ दिखाई देंगी।</div>
+<button id="logoutBtn">Logout</button>
+</div>
+</section>
+</div>
+
+<script>
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+const ready = !SUPABASE_URL.startsWith("YOUR_") &&
+              !SUPABASE_ANON_KEY.startsWith("YOUR_");
+
+const db = ready
+  ? window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY)
+  : null;
+
+const form = document.getElementById("bookingForm");
+const msg = document.getElementById("bookingMessage");
+const submitBtn = document.getElementById("submitBtn");
+
+form.elements.trip_date.min = new Date().toLocaleDateString("en-CA");
+
+form.addEventListener("submit",async(e)=>{
+ e.preventDefault();
+ if(!db){msg.textContent="पहले Supabase URL और Anon Key सेट करें।";return;}
+ submitBtn.disabled=true;
+ msg.textContent="Booking भेजी जा रही है...";
+ const f=new FormData(form);
+ const booking={
+  customer_name:f.get("customer_name").trim(),
+  phone:f.get("phone").trim(),
+  trip_date:f.get("trip_date"),
+  pickup:f.get("pickup").trim(),
+  destination:f.get("destination").trim(),
+  passengers:Number(f.get("passengers")),
+  vehicle_type:f.get("vehicle_type"),
+  status:"Pending"
+ };
+ const {error}=await db.from("car_bookings").insert(booking);
+ submitBtn.disabled=false;
+ if(error){msg.textContent="Booking नहीं हुई: "+error.message;}
+ else{msg.textContent="Booking सफलतापूर्वक भेज दी गई! हम जल्द संपर्क करेंगे।";form.reset();}
+});
+
+async function loadBookings(){
+ const list=document.getElementById("bookingList");
+ list.textContent="Loading...";
+ const {data,error}=await db.from("car_bookings")
+ .select("*").order("created_at",{ascending:false});
+ if(error){list.textContent="Error: "+error.message;return;}
+ if(!data.length){list.textContent="अभी कोई Booking नहीं है।";return;}
+ list.innerHTML="";
+ data.forEach(b=>{
+  const div=document.createElement("div");
+  div.className="booking";
+  const info=document.createElement("p");
+  info.textContent=`${b.customer_name} | ${b.phone}
+  तारीख: ${b.trip_date}
+  ${b.pickup} → ${b.destination}
+  यात्री: ${b.passengers}
+  गाड़ी: ${b.vehicle_type}
+  स्थिति: ${b.status}`;
+  div.appendChild(info);
+  const status=document.createElement("select");
+  ["Pending","Confirmed","Rejected"].forEach(s=>{
+   const o=document.createElement("option");o.value=s;o.textContent=s;
+   status.appendChild(o);
+  });
+  status.value=b.status;
+  status.addEventListener("change",async()=>{
+   const {error}=await db.from("car_bookings").update({status:status.value}).eq("id",b.id);
+   if(error)alert(error.message);else alert("Booking status updated");
+  });
+  div.appendChild(status);
+  list.appendChild(div);
+ });
+}
+
+document.getElementById("loginBtn").onclick=async()=>{
+ if(!db){document.getElementById("loginMessage").textContent="Supabase keys सेट करें।";return;}
+ const email=document.getElementById("adminEmail").value;
+ const password=document.getElementById("adminPassword").value;
+ const {error}=await db.auth.signInWithPassword({email,password});
+ if(error){document.getElementById("loginMessage").textContent=error.message;return;}
+ document.getElementById("loginArea").classList.add("hidden");
+ document.getElementById("adminArea").classList.remove("hidden");
+ loadBookings();
+};
+
+document.getElementById("refreshBtn").onclick=loadBookings;
+document.getElementById("logoutBtn").onclick=async()=>{
+ await db.auth.signOut();
+ document.getElementById("adminArea").classList.add("hidden");
+ document.getElementById("loginArea").classList.remove("hidden");
+};
+</script>
+</body>
+  </html>
+  
